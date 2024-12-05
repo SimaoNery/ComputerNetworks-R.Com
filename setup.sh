@@ -152,6 +152,8 @@ function router_setup()
 	echo -e "/ip route add dst-address=172.16.1.0/0 gateway=172.16.1.254\r\n" > /dev/ttyS0
 	sleep 1
 
+	echo -e "/ip route add dst-address=0.0.0.0/0 gateway=172.16.1.254\r\n" > /dev/ttyS0
+
 	read -p "[WARN] Would you like to disable NAT? (y/n)" opt
 
 	opt=${opt,,}
