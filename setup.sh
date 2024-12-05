@@ -32,6 +32,9 @@ function network_setup_2()
 	route add default gw 10.227.20.254
 
 	setup_dns
+
+	# Deletes ARP cache
+	ip neigh flush all
 }
 
 function network_setup_3()
@@ -49,6 +52,9 @@ function network_setup_3()
 	route add default gw 10.227.20.254
 
 	setup_dns
+
+	# Deletes ARP cache
+	ip neigh flush all
 }
 
 function network_setup_4()
@@ -68,6 +74,9 @@ function network_setup_4()
 	route add default gw 10.227.20.254
 
 	setup_dns
+
+	# Deletes ARP cache
+	ip neigh flush all
 }
 
 function microtik_setup()
