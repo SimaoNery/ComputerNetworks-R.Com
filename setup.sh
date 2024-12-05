@@ -11,16 +11,24 @@ function general_reset()
 	sysctl net.ipv4.icmp_echo_ignore_broadcasts=0
 }
 
+function setup_dns()
+{
+	systemctl stop systemd-resolved
+	echo "nameserver 10.227.20.3" > /etc/resolv.conf
+}
+
 function network_setup_2()
 {
 	echo "[INFO] Setting up tux 2"
 	
 	ifconfig eth1 172.16."$1"1.1/24
-	
+
 	route add -net 172.16."$1"0.0/24 gw 172.16."$1"1.253
 
 	# Default router (Rc)
 	route add default gw 172.16."$1"1.254
+
+	setup_dns
 }
 
 function network_setup_3()
@@ -30,9 +38,11 @@ function network_setup_3()
 	ifconfig eth1 172.16."$1"0.1/24
 	
 	route add -net 172.16."$1"1.0/24 gw 172.16."$1"0.254
-	
+
 	# Default router (Y4)
 	route add default gw 172.16."$1"0.254
+
+	setup_dns
 }
 
 function network_setup_4()
@@ -47,6 +57,8 @@ function network_setup_4()
 
 	# Default router (Rc)
 	route add default gw 172.16."$1"1.254
+
+	setup_dns
 }
 
 function microtik_setup()
@@ -143,16 +155,17 @@ function router_setup()
 	sleep 1
 
 	# Lab Network IP
+	echo -e '/ip address add address=10.227.20.'"$1"'9/24 interface=ether1\r\n' > /dev/ttyS0
+	sleep 1
+
 	echo -e '/ip address add address=172.16.1.'"$1"'9/24 interface=ether1\r\n' > /dev/ttyS0
 	sleep 1
 
 	echo -e '/ip route add dst-address=172.16.'"$1"'0.0/24 gateway=172.16.'"$1"'1.253\r\n' > /dev/ttyS0
 	sleep 1
 
-	echo -e "/ip route add dst-address=172.16.1.0/0 gateway=172.16.1.254\r\n" > /dev/ttyS0
+	echo -e "/ip route add dst-address=0.0.0.0/0 gateway=10.227.20.254\r\n" > /dev/ttyS0
 	sleep 1
-
-	echo -e "/ip route add dst-address=0.0.0.0/0 gateway=172.16.1.254\r\n" > /dev/ttyS0
 
 	read -p "[WARN] Would you like to disable NAT? (y/n)" opt
 
@@ -161,7 +174,7 @@ function router_setup()
 		echo -e "/ip firewall nat disable 0" > /dev/ttyS0
 		sleep 1
 
-		read -p "[WARN] Would you like to setup NAT? " opt
+		read -p "[WARN] Would you like to setup NAT? (y/n)" opt
 
 		opt=${opt,,}
 		if [[ "$opt" == "y" ]]; then
