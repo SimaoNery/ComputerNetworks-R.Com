@@ -38,10 +38,7 @@ int parse_url(const char *text, t_url *url)
 }
 
 int send_ftp_command(const int socket, const char* command) {
-    size_t bytes = write(socket, command, strlen(command));
-    if(bytes < 0) return -1;
-
-    return EXIT_SUCCESS;
+    return write(socket, command, strlen(command)) < 0 ? -1 : 0;
 }
 
 int read_ftp_response(const int socket, char* response_buffer, int* response_code) {
@@ -52,7 +49,7 @@ int read_ftp_response(const int socket, char* response_buffer, int* response_cod
 
     int index = 0;
     *response_code = 0;
-    int previous_code = 0;
+    //int previous_code = 0;
 
     while (state != COMPLETE) {
         char byte = 0;
@@ -70,7 +67,7 @@ int read_ftp_response(const int socket, char* response_buffer, int* response_cod
                 }
                 else if (byte == '-') {
                     state = MULTILINE_MESSAGE;
-                    previous_code = *response_code;
+                    //previous_code = *response_code;
                 }
                 break;
             case READ_MESSAGE:
@@ -104,6 +101,7 @@ int read_ftp_response(const int socket, char* response_buffer, int* response_cod
         } 
     }
     printf("[%d] Message: \n %s\n\n", *response_code, response_buffer);
+    return 0;
 }
 
 int connect_socket(const char *ip, const int port, int *socket_fd)
@@ -124,6 +122,7 @@ int connect_socket(const char *ip, const int port, int *socket_fd)
         perror("socket()");
         return -1;
     }
+
     /*connect to the server*/
     if (connect(sockfd,
                 (struct sockaddr *) &server_addr,
@@ -134,7 +133,7 @@ int connect_socket(const char *ip, const int port, int *socket_fd)
 
     *socket_fd = sockfd;
 
-    return 0 ;
+    return 0;
 }
 
 int establish_connection(const char *ip, const int port, int *socket_fd)
@@ -167,22 +166,23 @@ int enter_ftp_passive_mode(const int socket1, char *ip, int *port)
     char *res = calloc(FTP_MAX_RESPONSE_SIZE, sizeof(char));
     int res_code = 0;
 
-    if (send_ftp_command(socket1, res)) return free(res), -1;
+    if (send_ftp_command(socket1, command)) return free(res), -1;
 
     if (read_ftp_response(socket1, res, &res_code)) return free(res), -1;
 
-    if (res_code != 227) free(res), -1;
+    if (res_code != 227) return free(res), -1;
     
-    int ip[4], pt[2];
+    int ip2[4] = {0, 0, 0, 0}, port2[2] = {0, 0};
     
     if (sscanf(res, "Entering Passive Mode (%d,%d,%d,%d,%d,%d)", 
-        ip[0], ip[1], ip[2], ip[3], pt[0], pt[1]) != 6)
-        return freee(res), -1;
+        ip2, ip2 + 1, ip2 + 2, ip2 + 3, port2, port2 + 1) != 6)
+        return free(res), -1;
     
-    snprintf(ip, MAX_SIZE, "%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3]);
+    snprintf(ip, MAX_SIZE, "%d.%d.%d.%d", ip2[0], ip2[1], ip2[2], ip2[3]);
 
-    *port = (pt[1] << 8) + pt[1];
-    
+    *port = (port2[0] << 8) + port2[1];
+
+    printf("Socket2 -> IP: %s, Port: %d\n", ip, *port);
     return free(res), 0;
 }
 
@@ -242,18 +242,18 @@ int download_file(const int socket1, const int socket2, const char* url_path, co
 
     snprintf(command, FTP_MAX_RESPONSE_SIZE, "retr %s\r\n", url_path);
     
-    if (send_ftp_command(socket, command)) {
+    if (send_ftp_command(socket1, command)) {
         free(command), free(response);
         return -1;
     }
 
-    if (read_ftp_response(socket, response, &response_code)) {
+    if (read_ftp_response(socket1, response, &response_code)) {
         free(command), free(response);
         return -1;
     }
 
-    if (response_code != 100) {
-        printf("retr command with URL path: %s\n", url_path);
+    if (response_code / 100 != 1) {
+        printf("code != 100 - URL path: %s\n", url_path);
         free(command), free(response);
         return -1;
     }
@@ -268,11 +268,15 @@ int download_file(const int socket1, const int socket2, const char* url_path, co
     char *buffer = malloc(MAX_SIZE);
     int bytes_read = read(socket2, buffer, MAX_SIZE);
 
-    while(bytes_read > 0) {
-        if(fwrite(buffer, bytes_read, 1, file) < 0) {
+    int total = 0;
+    while (bytes_read > 0) {
+        if (write(file->_fileno, buffer, bytes_read) < 0) {
             free(buffer), free(response), free(command);
             return -1;
         }
+        total += bytes_read;
+        printf("curr progress: %d bytes\n", total);
+        bytes_read = read(socket2, buffer, MAX_SIZE);
     }
 
     fclose(file);

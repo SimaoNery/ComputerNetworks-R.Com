@@ -13,7 +13,7 @@ int main(int argc, char *argv[])
 
     // Parse URL
     
-    if (parse_ftp_url(argv[1], &url))
+    if (parse_url(argv[1], &url))
     {
         printf("Usage: %s ftp://[<user>:<password>@]<host>/<url-path>\n", argv[0]);
         exit(-1);
@@ -38,7 +38,7 @@ int main(int argc, char *argv[])
 
     int socket1, socket2;
 
-    if (establish_ftp_connection(url.ip, FTP_PORT, &socket1))
+    if (establish_connection(url.ip, FTP_PORT, &socket1))
         exit(-1);
     
     printf("socket1: %d\n", socket1);
@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
     char* data_ip = malloc(256); // ip tp connect socket2
 
     int data_port = 0;
-
+    
     if (enter_ftp_passive_mode(socket1, data_ip, &data_port))
     {
         close_connection(socket1, SOCKET_NOT_CONNECTED);
