@@ -41,7 +41,8 @@ function network_setup_2()
 	
 	ifconfig eth1 172.16."$1"1.1/24
 
-	route add -net 172.16."$1"0.0/24 gw 172.16."$1"1.253
+	route add -net 172.16."$1"0.0/24 gw 172.16."$1"1.254
+	route add -net 172.16.1.0/24 gw 172.16."$1"1.254
 
 	# Default router (Rc)
 	route add default gw 172.16."$1"1.254
@@ -58,10 +59,10 @@ function network_setup_3()
 	echo "[INFO] Setting up tux 3"
 
 	ifconfig eth0 10.227.20."$1"3/24
-	
 	ifconfig eth1 172.16."$1"0.1/24
 	
 	route add -net 172.16."$1"1.0/24 gw 172.16."$1"0.254
+	route add -net 172.16.1.0/24 gw 172.16."$1"0.254
 
 	# Default router (Y4)
 	route add default gw 172.16."$1"0.254
@@ -80,10 +81,10 @@ function network_setup_4()
 	sysctl net.ipv4.ip_forward=1
 
 	ifconfig eth0 10.227.20."$1"4/24
-	
 	ifconfig eth1 172.16."$1"0.254/24
-	
 	ifconfig eth2 172.16."$1"1.253/24
+
+	route add -net 172.16.1.0/24 gw 172.16."$1"0.254
 
 	# Default router (Rc)
 	route add default gw 172.16."$1"1.254
