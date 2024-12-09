@@ -1,13 +1,10 @@
 #! /bin/bash
 
-timeout=60
+timeout=30
 
 function general_reset()
 {
 	echo "[INFO] Reseting interfaces to default"
-
-    #echo "Restart networking"
-    #systemctl restart networking
 
     echo "Disable interfaces"
     ifconfig eth0 down	
@@ -16,7 +13,10 @@ function general_reset()
 
     echo "Delete all routes"
     ip route flush table main
-
+    
+    echo "Restart networking"
+    systemctl restart networking
+    
     echo "Disable ignore broadcasts"
 	sysctl net.ipv4.icmp_echo_ignore_broadcasts=0
 }
@@ -37,7 +37,7 @@ function network_setup_2()
 {
 	echo "[INFO] Setting up tux 2"
 
-	ifconfig eth0 10.227.20."$1"2/24
+	# ifconfig eth0 10.227.20."$1"2/24
 	
 	ifconfig eth1 172.16."$1"1.1/24
 
@@ -45,8 +45,8 @@ function network_setup_2()
 	route add -net 172.16.1.0/24 gw 172.16."$1"1.254
 
 	# Default router (Rc)
-	route add default gw 172.16."$1"1.254
-	route add default gw 10.227.20.254
+	#route add default gw 172.16."$1"1.254
+	#route add default gw 10.227.20.254
 
 	# Deletes ARP cache
 	ip neigh flush all
@@ -58,15 +58,15 @@ function network_setup_3()
 {
 	echo "[INFO] Setting up tux 3"
 
-	ifconfig eth0 10.227.20."$1"3/24
+	# ifconfig eth0 10.227.20."$1"3/24
 	ifconfig eth1 172.16."$1"0.1/24
 	
 	route add -net 172.16."$1"1.0/24 gw 172.16."$1"0.254
 	route add -net 172.16.1.0/24 gw 172.16."$1"0.254
 
 	# Default router (Y4)
-	route add default gw 172.16."$1"0.254
-	route add default gw 10.227.20.254
+	# route add default gw 172.16."$1"0.254
+	# route add default gw 10.227.20.254
 
 	# Deletes ARP cache
 	ip neigh flush all
@@ -80,15 +80,15 @@ function network_setup_4()
 
 	sysctl net.ipv4.ip_forward=1
 
-	ifconfig eth0 10.227.20."$1"4/24
+	# ifconfig eth0 10.227.20."$1"4/24
 	ifconfig eth1 172.16."$1"0.254/24
 	ifconfig eth2 172.16."$1"1.253/24
 
-	route add -net 172.16.1.0/24 gw 172.16."$1"0.254
+	route add -net 172.16.1.0/24 gw 172.16."$1"1.254
 
 	# Default router (Rc)
-	route add default gw 172.16."$1"1.254
-	route add default gw 10.227.20.254
+	# route add default gw 172.16."$1"1.254
+	# route add default gw 10.227.20.254
 
 	# Deletes ARP cache
 	ip neigh flush all
@@ -107,17 +107,7 @@ function microtik_setup()
     
     echo "Starting reset timeout (60s). Press enter if reset already finished... "
 	
-	elapsed_time=0
-
-	while [ $elapsed_time -lt $timeout ]; do
-		sleep 1
-
-		elapsed_time=$((elapsed_time + 1))
-		
-		if read -t 0; then
-   			break
-		fi
-	done
+	sleep $timeout
 
     echo "Ended reset timeout"
 
@@ -239,6 +229,11 @@ function router_setup()
 		fi
 	fi
 }
+
+if [ $# -ne 2 ]; then
+    printf "[ERRO] Invalid argument number.\nUsage: %s <bench number> <tux>\n" "$0"
+	exit 1
+fi
 
 if [ 15 -lt "$1" ] || [ 1 -gt "$1" ]; then
 	printf "[ERRO] Invalid bench number.\nUsage: %s <bench number> <tux>\n" "$0"
