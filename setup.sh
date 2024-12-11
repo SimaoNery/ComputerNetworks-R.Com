@@ -7,7 +7,7 @@ function general_reset()
 	echo "[INFO] Reseting interfaces to default"
 
     echo "Disable interfaces"
-    ifconfig eth0 down	
+    #ifconfig eth0 down	
     ifconfig eth1 down
 	ifconfig eth2 down
 

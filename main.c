@@ -13,13 +13,13 @@ int main(int argc, char *argv[])
 
     // Parse URL
     
-    if (parse_url(argv[1], &url))
+    if (url_parse(argv[1], &url))
     {
         printf("Usage: %s ftp://[<user>:<password>@]<host>/<url-path>\n", argv[0]);
         exit(-1);
     }
 
-    printf("Parsed details from URL '%s'\n"
+    printf("[INFO] Parsed details from URL '%s'\n"
            "- User: %s \n"
            "- Password: %s\n"
            "- Host: %s\n" 
@@ -38,15 +38,15 @@ int main(int argc, char *argv[])
 
     int socket1, socket2;
 
-    if (establish_connection(url.ip, FTP_PORT, &socket1))
+    if (ftp_host_connect(url.ip, FTP_PORT, &socket1))
         exit(-1);
     
-    printf("socket1: %d\n", socket1);
+    printf("[INFO] Socket1: %d\n", socket1);
 
     // Login with credentials or Anonimous Mode
-    if (login_ftp(socket1, url.user, url.password))
+    if (ftp_login(socket1, url.user, url.password))
     {
-        close_connection(socket1, SOCKET_NOT_CONNECTED);
+        ftp_close_connection(socket1, SOCKET_NOT_CONNECTED);
         exit(-1);
     }
 
@@ -56,28 +56,28 @@ int main(int argc, char *argv[])
 
     int data_port = 0;
     
-    if (enter_ftp_passive_mode(socket1, data_ip, &data_port))
+    if (ftp_enter_passive(socket1, data_ip, &data_port))
     {
-        close_connection(socket1, SOCKET_NOT_CONNECTED);
+        ftp_close_connection(socket1, SOCKET_NOT_CONNECTED);
         exit(-1);
     }
 
     // Download the File
-    if (connect_socket(data_ip, data_port, &socket2))
+    if (ftp_connect(data_ip, data_port, &socket2))
     {
-        close_connection(socket1, SOCKET_NOT_CONNECTED);
+        ftp_close_connection(socket1, SOCKET_NOT_CONNECTED);
         exit(-1);
     }
 
-    printf("socket2: %d\n", socket2);
+    printf("[INFO] Socket2: %d\n", socket2);
     
-    if (download_file(socket1, socket2, url.url_path, url.filename))
+    if (ftp_download_file(socket1, socket2, url.url_path, url.file_name))
     {
-        close_connection(socket1, socket2);
+        ftp_close_connection(socket1, socket2);
         exit(-1);
     }
 
-    if (close_connection(socket1, socket2)) exit(-1);
+    if (ftp_close_connection(socket1, socket2)) exit(-1);
 
     return 0;
 }

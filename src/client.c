@@ -1,7 +1,6 @@
 #include "client.h"
 
-//ftp://[<user>:<password>@]<host>/<url-path>
-int parse_url(const char *text, t_url *url)
+int url_parse(const char *text, t_url *url)
 {
     if (url == NULL) return -1;
 
@@ -14,8 +13,8 @@ int parse_url(const char *text, t_url *url)
         
         if (result != 2) return -1;
 
-        strncpy(url->user, "anonymous", MAX_SIZE - 1);
-        strncpy(url->password, "anonymous", MAX_SIZE - 1);
+        strcpy(url->user, "anonymous");
+        strcpy(url->password, "anonymous");
     }   
 
     if (strlen(url->host) == 0) return -1;
@@ -23,25 +22,30 @@ int parse_url(const char *text, t_url *url)
     struct hostent *h = gethostbyname(url->host);
     if (h == NULL)
     {
-        printf("Error getting host.");
+        printf("[ERRO] Couldn't get host.");
         return -1;
     }
 
-    strncpy(url->ip, inet_ntoa(*((struct in_addr *) h->h_addr_list[0])), MAX_SIZE - 1);
+	struct in_addr *addr = (struct in_addr *)h->h_addr_list[0];
+    strncpy(url->ip, inet_ntoa(*addr), MAX_SIZE - 1);
 
     strncpy(url->host_name, h->h_name, sizeof(url->host_name) - 1);
     
-    char *last_slash = strrchr(url->url_path, '/');
-    strncpy(url->filename, last_slash == NULL ? url->url_path : last_slash + 1, MAX_SIZE - 1);
+    char *ptr = strrchr(url->url_path, '/');
+    strncpy(url->file_name, ptr == NULL ? url->url_path : ptr + 1, MAX_SIZE - 1);
 
     return 0;
 }
 
-int send_ftp_command(const int socket, const char* command) {
-    return write(socket, command, strlen(command)) < 0 ? -1 : 0;
+int ftp_write(const int socket, const char* command)
+{
+	if (write(socket, command, strlen(command)) < 0)
+		return -1;
+    return 0;
 }
 
-int read_ftp_response(const int socket, char* response_buffer, int* response_code) {
+int ftp_read(const int socket, char *response_buffer, int *response_code)
+{
     if (response_buffer == NULL || response_code == NULL) 
         return -1;
     
@@ -49,25 +53,23 @@ int read_ftp_response(const int socket, char* response_buffer, int* response_cod
 
     int index = 0;
     *response_code = 0;
-    //int previous_code = 0;
 
     while (state != COMPLETE) {
         char byte = 0;
-        int read_status = read(socket, &byte, sizeof(byte));
+        int read_status = read(socket, &byte, sizeof(char));
 
         if(read_status == -1) return -1;
 
         switch (state) {
             case READ_CODE:
                 if (byte >= '0' && byte <= '9') {
-                    *response_code = *response_code * 10 + (byte - '0'); 
+                    *response_code = *response_code * 10 + (byte - '0');
                 }
                 else if (byte == ' ')  {
                     state = READ_MESSAGE;
                 }
                 else if (byte == '-') {
                     state = MULTILINE_MESSAGE;
-                    //previous_code = *response_code;
                 }
                 break;
             case READ_MESSAGE:
@@ -88,7 +90,6 @@ int read_ftp_response(const int socket, char* response_buffer, int* response_cod
                     response_buffer[index] = '\0';
                     return -1;
                 }
-
                 if (byte == '\n') {
                     state = READ_CODE;
                     *response_code = 0;
@@ -100,57 +101,55 @@ int read_ftp_response(const int socket, char* response_buffer, int* response_cod
                 return -1;
         } 
     }
-    printf("[%d] Message: \n %s\n\n", *response_code, response_buffer);
+	
+    printf("[INFO] Message:\n - Code: %d\n - Message:\n %s\n\n", *response_code, response_buffer);
     return 0;
 }
 
-int connect_socket(const char *ip, const int port, int *socket_fd)
+int ftp_connect(const char *ip, const int port, int *socket1)
 {
-    if(ip == NULL || socket_fd == NULL) return -1;
+    if (ip == NULL || socket1 == NULL) return -1;
 
-    int sockfd;
     struct sockaddr_in server_addr;
+	int fd;
 
-    /*server address handling*/
     bzero((char *) &server_addr, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = inet_addr(ip);    /*32 bit Internet address network byte ordered*/
-    server_addr.sin_port = htons(port);        /*server TCP port must be network byte ordered */
+    server_addr.sin_addr.s_addr = inet_addr(ip);
+    server_addr.sin_port = htons(port);
 
-     /*open a TCP socket*/
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("socket()");
+    if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+        printf("[ERRO] Couldn't create socket!\n");
         return -1;
     }
 
-    /*connect to the server*/
-    if (connect(sockfd,
+    if (connect(fd,
                 (struct sockaddr *) &server_addr,
                 sizeof(server_addr)) < 0) {
-        perror("connect()");
+        printf("[ERRO] Couldn't connect socket!\n");
         return -1;
     }
 
-    *socket_fd = sockfd;
+    *socket1 = fd;
 
     return 0;
 }
 
-int establish_connection(const char *ip, const int port, int *socket_fd)
+int ftp_host_connect(const char *ip, const int port, int *socket1)
 {
-   if(connect_socket(ip, port, socket_fd)) return -1;
+   if (ftp_connect(ip, port, socket1)) return -1;
    
    char* response = malloc(FTP_MAX_RESPONSE_SIZE);
    int response_code = 0;
 
-   if(read_ftp_response((*socket_fd), response, &response_code)) {
-        printf("Error while trying to read response!\n");
+   if (ftp_read(*socket1, response, &response_code)) {
+        printf("[ERRO] Couldn't read response!\n");
         free(response);
         return -1;
    }
 
-   if(response_code != 220) {
-        printf("Failed connection to %s\n", ip);
+   if(response_code != FTP_SERVER_READY) {
+        printf("[ERRO] Failed connection to %s\n", ip);
         return -1;
    }
 
@@ -158,7 +157,7 @@ int establish_connection(const char *ip, const int port, int *socket_fd)
    return 0;
 }
 
-int enter_ftp_passive_mode(const int socket1, char *ip, int *port)
+int ftp_enter_passive(const int socket1, char *ip, int *port)
 {
     if (ip == NULL || port == NULL) return -1;
 
@@ -166,11 +165,11 @@ int enter_ftp_passive_mode(const int socket1, char *ip, int *port)
     char *res = calloc(FTP_MAX_RESPONSE_SIZE, sizeof(char));
     int res_code = 0;
 
-    if (send_ftp_command(socket1, command)) return free(res), -1;
+    if (ftp_write(socket1, command)) return free(res), -1;
 
-    if (read_ftp_response(socket1, res, &res_code)) return free(res), -1;
+    if (ftp_read(socket1, res, &res_code)) return free(res), -1;
 
-    if (res_code != 227) return free(res), -1;
+    if (res_code != FTP_ENTERED_PASSIVE) return free(res), -1;
     
     int ip2[4] = {0, 0, 0, 0}, port2[2] = {0, 0};
     
@@ -182,12 +181,11 @@ int enter_ftp_passive_mode(const int socket1, char *ip, int *port)
 
     *port = (port2[0] << 8) + port2[1];
 
-    printf("Socket2 -> IP: %s, Port: %d\n", ip, *port);
+    printf("[INFO] Socket2\n - IP: %s\n - Port: %d\n", ip, *port);
     return free(res), 0;
 }
 
-// login
-int login_ftp(const int socket, const char* username, const char* password) {
+int ftp_login(const int socket, const char* username, const char* password) {
     if (username == NULL || password == NULL) return -1;
 
     char *command = malloc(FTP_MAX_RESPONSE_SIZE);
@@ -195,38 +193,28 @@ int login_ftp(const int socket, const char* username, const char* password) {
     int response_code = 0;
     
     snprintf(command, FTP_MAX_RESPONSE_SIZE, "USER %s\r\n", username);
-    if (send_ftp_command(socket, command)) {
-        free(command), free(response);
-        return -1;
-    }
+    if (ftp_write(socket, command))
+        return free(command), free(response), -1;
     
-    if (read_ftp_response(socket, response, &response_code)) {
-        free(command), free(response);
-        return -1;
-    }
+    if (ftp_read(socket, response, &response_code))
+        return free(command), free(response), -1;
     
-    if (response_code != 331) {
-        printf("login failed with user: %s\n", username);
+    if (response_code != FTP_PASSWORD_REQUESTED) {
+        printf("[ERRO] Login failed with user: %s\n", username);
         free(command), free(response);
         return -1;    
     }
     
     snprintf(command, FTP_MAX_RESPONSE_SIZE, "PASS %s\r\n", password);
     
-    if (send_ftp_command(socket, command))
-    {
-        free(command), free(response);
-        return -1;
+    if (ftp_write(socket, command))
+        return free(command), free(response), -1;
     
-    }
-    
-    if (read_ftp_response(socket, response, &response_code)) {
-        free(command), free(response);
-        return -1;
-    }
+    if (ftp_read(socket, response, &response_code))
+        return free(command), free(response), -1;
 
     if (response_code != 230) {
-        printf("login failed with password: %s\n", password);
+        printf("[ERRO] Login failed with password: %s\n", password);
         free(command), free(response);
         return -1;
     }
@@ -235,33 +223,32 @@ int login_ftp(const int socket, const char* username, const char* password) {
 }
 
 // download
-int download_file(const int socket1, const int socket2, const char* url_path, const char* filename) {
+int ftp_download_file(const int socket1, const int socket2, const char* url_path, const char* file_name) {
     char *command = malloc(FTP_MAX_RESPONSE_SIZE);
     char *response = malloc(FTP_MAX_RESPONSE_SIZE);
     int response_code = 0;
 
     snprintf(command, FTP_MAX_RESPONSE_SIZE, "retr %s\r\n", url_path);
     
-    if (send_ftp_command(socket1, command)) {
-        free(command), free(response);
-        return -1;
-    }
+    if (ftp_write(socket1, command))
+        return free(command), free(response), -1;
 
-    if (read_ftp_response(socket1, response, &response_code)) {
-        free(command), free(response);
-        return -1;
-    }
+    if (ftp_read(socket1, response, &response_code))
+        return free(command), free(response), -1;
 
     if (response_code / 100 != 1) {
-        printf("code != 100 - URL path: %s\n", url_path);
+        printf("[ERRO] Invalid code (URL path: %s)\n", url_path);
         free(command), free(response);
         return -1;
     }
 
-    FILE *file = fopen(filename, "wb");
+	int total_file;
+	sscanf(response, "Opening ASCII mode data connection for %255[^ ] (%d bytes)", response, &total_file);
+
+    FILE *file = fopen(file_name, "wb");
 
     if (file == NULL) {
-        printf("error while opening file\n");
+        printf("[ERRO] Couldn't open file\n\n");
         return -1;
     }
 
@@ -269,27 +256,31 @@ int download_file(const int socket1, const int socket2, const char* url_path, co
     int bytes_read = read(socket2, buffer, MAX_SIZE);
 
     int total = 0;
-    while (bytes_read > 0) {
-        if (write(file->_fileno, buffer, bytes_read) < 0) {
-            free(buffer), free(response), free(command);
-            return -1;
-        }
+    while (bytes_read > 0)
+	{
+        if (write(file->_fileno, buffer, bytes_read) < 0)
+            return free(buffer), free(response), free(command), -1;
         total += bytes_read;
-        printf("curr progress: %d bytes\n", total);
+
+		float perc = (total * 1.0f / total_file) * 100;
+        printf("\r[INFO] Current progress: %d bytes (%.2f%%)", total, perc);
+		fflush(stdout);
         bytes_read = read(socket2, buffer, MAX_SIZE);
     }
+
+	printf("\n");
 
     fclose(file);
 
     while (1) {
-        if(read_ftp_response(socket1, response, &response_code) < 0) {
-            fprintf(stderr, "Failed to read FTP response.\n");
+        if (ftp_read(socket1, response, &response_code) < 0) {
+            fprintf(stderr, "[ERRO] Failed to read FTP response.\n");
             free(buffer), free(response), free(command);
             return -1;
         }
 
-        if (response_code != 226) {
-            fprintf(stderr, "Transfer was not complete. Expected code: %d, but got: %d\n", 226, response_code);
+        if (response_code != FTP_CONNECTION_CLOSED) {
+            fprintf(stderr, "[ERRO] Transfer was not complete. Expected code: %d, but got: %d\n", 226, response_code);
             free(buffer), free(response), free(command);
             return -1;
         }
@@ -301,23 +292,24 @@ int download_file(const int socket1, const int socket2, const char* url_path, co
     return EXIT_SUCCESS;
 }
 
-int close_connection(const int socket1, const int socket2)
+int ftp_close_connection(const int socket1, const int socket2)
 {
     char *command = "quit\r\n";
     char *res = calloc(FTP_MAX_RESPONSE_SIZE, sizeof(char));
     int res_code = 0;
     
-    if (send_ftp_command(socket1, command)) return free(res), -1;
+    if (ftp_write(socket1, command)) return free(res), -1;
     
-    if (read_ftp_response(socket1, res, &res_code)) return free(res), -1;
+    if (ftp_read(socket1, res, &res_code)) return free(res), -1;
 
-    if (res_code != 221)
+    if (res_code != FTP_CONTROL_CLOSED)
     {
-        printf("Error trying to close connection [CODE %d]\n", res_code);
+        printf("[ERRO] Couldn't close connection [CODE %d]\n", res_code);
         return free(res), -1;
     }
     
     if (close(socket1) < 0) return -1;
+
     if (socket2 >= 0 && close(socket2) < 0) return -1;
 
     return 0;
