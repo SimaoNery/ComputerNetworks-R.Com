@@ -242,7 +242,7 @@ int ftp_download_file(const int socket1, const int socket2, const char* url_path
         return -1;
     }
 
-	int total_file;
+	int total_file = 1;
 	sscanf(response, "Opening %255[^ ] mode data connection for %255[^ ] (%d bytes)", response, response, &total_file);
 
     FILE *file = fopen(file_name, "wb");
