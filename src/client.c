@@ -25,7 +25,7 @@ int url_parse(const char *text, t_url *url)
 	struct hostent *h = gethostbyname(url->host);
 	if (h == NULL)
 	{
-		printf("[ERRO] Couldn't get host.");
+		printf("[ERRO] Couldn't get host.\n");
 		return -1;
 	}
 
