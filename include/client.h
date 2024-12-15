@@ -2,6 +2,7 @@
 #define _CLIENT_H_
 
 #include <time.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -17,6 +18,8 @@
 #define FTP_PORT                21
 #define FTP_MAX_RESPONSE_SIZE   1024
 
+#define FTP_TRANSFER_READY1		125
+#define FTP_TRANSFER_READY2		150
 #define FTP_SERVER_READY		220
 #define FTP_CONTROL_CLOSED		221
 #define FTP_CONNECTION_CLOSED	226

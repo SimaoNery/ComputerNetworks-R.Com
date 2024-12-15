@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
     if (ftp_host_connect(url.ip, FTP_PORT, &socket1))
         exit(-1);
     
-    printf("[INFO] Socket1: %d\n", socket1);
+    printf("\n[INFO] Socket1: %d\n", socket1);
 
     // Login with credentials or Anonimous Mode
     if (ftp_login(socket1, url.user, url.password))
@@ -58,6 +58,7 @@ int main(int argc, char *argv[])
     
     if (ftp_enter_passive(socket1, data_ip, &data_port))
     {
+		printf("\n[ERRO] Couldn't enter passive mode.\n");
         ftp_close_connection(socket1, SOCKET_NOT_CONNECTED);
         exit(-1);
     }
@@ -65,11 +66,12 @@ int main(int argc, char *argv[])
     // Download the File
     if (ftp_connect(data_ip, data_port, &socket2))
     {
+		printf("\n[ERRO] Couldn't connect socket. (%s:%d)\n", data_ip, data_port);
         ftp_close_connection(socket1, SOCKET_NOT_CONNECTED);
         exit(-1);
     }
 
-    printf("[INFO] Socket2: %d\n", socket2);
+    printf("\n[INFO] Socket2: %d\n", socket2);
     
     if (ftp_download_file(socket1, socket2, url.url_path, url.file_name))
     {
