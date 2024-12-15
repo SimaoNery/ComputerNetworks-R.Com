@@ -33,6 +33,7 @@ int url_parse(const char *text, t_url *url)
     
     char *ptr = strrchr(url->url_path, '/');
     strncpy(url->file_name, ptr == NULL ? url->url_path : ptr + 1, MAX_SIZE - 1);
+	url->file_name[MAX_SIZE - 1] = '\0';
 
     return 0;
 }
@@ -252,10 +253,15 @@ int ftp_download_file(const int socket1, const int socket2, const char* url_path
         return -1;
     }
 
-    char *buffer = malloc(MAX_SIZE);
-    int bytes_read = read(socket2, buffer, MAX_SIZE);
+    char *buffer = malloc(FTP_MAX_RESPONSE_SIZE);
+    int bytes_read = read(socket2, buffer, FTP_MAX_RESPONSE_SIZE);
 
     int total = 0;
+	float old_perc = 0;
+	double diff = 0;
+	time_t start, end;
+
+	time(&start);
     while (bytes_read > 0)
 	{
         if (write(file->_fileno, buffer, bytes_read) < 0)
@@ -263,9 +269,15 @@ int ftp_download_file(const int socket1, const int socket2, const char* url_path
         total += bytes_read;
 
 		float perc = (total * 1.0f / total_file) * 100;
-        printf("\r[INFO] Current progress: %d bytes (%.2f%%)", total, perc);
-		fflush(stdout);
-        bytes_read = read(socket2, buffer, MAX_SIZE);
+		if (perc >= old_perc + 2.5 || old_perc == 0)
+		{
+			time(&end);
+			diff = difftime(end, start);
+			old_perc = perc;
+        	printf("\r[INFO] Current progress: %d bytes (%.2f%%) (%.2lfs)", total, perc, diff);
+			fflush(stdout);
+		}
+        bytes_read = read(socket2, buffer, FTP_MAX_RESPONSE_SIZE);
     }
 
 	printf("\n");
@@ -280,7 +292,8 @@ int ftp_download_file(const int socket1, const int socket2, const char* url_path
         }
 
         if (response_code != FTP_CONNECTION_CLOSED) {
-            fprintf(stderr, "[ERRO] Transfer was not complete. Expected code: %d, but got: %d\n", 226, response_code);
+            fprintf(stderr, "[ERRO] Transfer was not complete. Expected code: %d, but got: %d\n",
+				FTP_CONNECTION_CLOSED, response_code);
             free(buffer), free(response), free(command);
             return -1;
         }

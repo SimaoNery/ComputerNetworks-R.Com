@@ -1,6 +1,7 @@
 #ifndef _CLIENT_H_
 #define _CLIENT_H_
 
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
