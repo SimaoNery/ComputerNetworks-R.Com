@@ -37,13 +37,6 @@ typedef struct s_url {
     char file_name[MAX_SIZE];
 }	t_url;
 
-typedef enum e_state {
-    READ_CODE,
-    READ_MESSAGE,
-    MULTILINE_MESSAGE,
-    COMPLETE
-}   t_state;
-
 int url_parse(const char *text, t_url *url);
 
 int ftp_write(const int socket, const char* command);

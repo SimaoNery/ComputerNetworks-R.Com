@@ -54,12 +54,10 @@ int ftp_read(const int socket, char *response_buffer, int *response_code)
 	if (response_buffer == NULL || response_code == NULL)
 		return -1;
 
-	t_state state = READ_CODE;
-
 	int index = 0;
 	*response_code = 0;
 
-	while (state != COMPLETE)
+	while (1)
 	{
 		char byte = 0;
 		int read_status = read(socket, &byte, sizeof(char));
@@ -82,7 +80,7 @@ int ftp_read(const int socket, char *response_buffer, int *response_code)
 			sscanf(response_buffer, "%d", response_code);
 			break;
 		}
-		
+
 		index = 0;
 	}
 
@@ -220,7 +218,6 @@ int ftp_login(const int socket, const char *username, const char *password)
 	return free(command), free(response), 0;
 }
 
-// download
 int ftp_download_file(const int socket1, const int socket2, const char *url_path, const char *file_name)
 {
 	char *command = malloc(FTP_MAX_RESPONSE_SIZE);
