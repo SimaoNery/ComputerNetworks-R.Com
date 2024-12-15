@@ -173,7 +173,7 @@ int ftp_enter_passive(const int socket1, char *ip, int *port)
 
 	*port = (port2[0] << 8) + port2[1];
 
-	printf("[INFO] Socket2\n - IP: %s\n - Port: %d\n", ip, *port);
+	printf("\n[INFO] Socket2\n - IP: %s\n - Port: %d\n", ip, *port);
 	return free(res), 0;
 }
 
