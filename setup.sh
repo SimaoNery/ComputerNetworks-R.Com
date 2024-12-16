@@ -1,6 +1,6 @@
 #! /bin/bash
 
-timeout=30
+timeout=60
 
 function general_reset()
 {
@@ -105,7 +105,7 @@ function microtik_setup()
 	echo -e "/system reset-configuration\r\n" > /dev/ttyS0
 	echo -e "y\r\n" > /dev/ttyS0
     
-    echo "Starting reset timeout (60s). Press enter if reset already finished... "
+    echo "Starting reset timeout (60s)."
 	
 	sleep $timeout
 
